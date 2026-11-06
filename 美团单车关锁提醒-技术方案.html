@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>美团单车关锁提醒 · 技术方案</title>
+<style>
+:root{
+  --ink:#17181C; --sub:#575C66; --faint:#8A8F99;
+  --line:#E6E8EC; --bg:#F6F7F9; --card:#FFFFFF;
+  --amber:#B45309; --amber-bg:#FEF6E7;
+  --red:#B42318; --red-bg:#FEF3F2;
+  --green:#067647; --green-bg:#ECFDF3;
+  --blue:#1D4ED8; --blue-bg:#EFF4FF;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:900px;margin:0 auto;padding:56px 26px 120px}
+header{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:36px}
+.kicker{font-size:12px;letter-spacing:.14em;color:var(--amber);font-weight:600;margin-bottom:12px}
+h1{font-size:31px;line-height:1.3;margin:0 0 14px;font-weight:650;letter-spacing:-.01em}
+.lede{font-size:16px;color:var(--sub);margin:0;max-width:680px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+.chip{font-size:12px;color:var(--sub);background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:4px 12px}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:52px}
+.toc h2{font-size:13px;margin:0 0 14px;color:var(--faint);font-weight:600;letter-spacing:.08em}
+.toc ol{margin:0;padding:0;list-style:none;columns:2;column-gap:36px}
+.toc li{margin:0 0 7px;font-size:14px;break-inside:avoid}
+.toc a{color:var(--sub);text-decoration:none;border-bottom:1px solid transparent}
+.toc a:hover{color:var(--amber);border-bottom-color:var(--amber)}
+.toc .n{color:var(--faint);font-variant-numeric:tabular-nums;margin-right:8px;font-size:12px}
+section{margin-bottom:64px;scroll-margin-top:24px}
+h2{font-size:22px;font-weight:650;margin:0 0 8px;letter-spacing:-.005em;display:flex;align-items:baseline;gap:12px}
+h2 .num{font-size:12px;color:var(--amber);font-weight:700;letter-spacing:.1em;
+  border:1px solid #F0D5B0;background:var(--amber-bg);border-radius:6px;padding:2px 7px;
+  position:relative;top:-2px;font-variant-numeric:tabular-nums}
+h3{font-size:16px;font-weight:640;margin:34px 0 10px;color:var(--ink)}
+h3::before{content:"";display:inline-block;width:3px;height:14px;background:var(--amber);
+  border-radius:2px;margin-right:10px;vertical-align:-1px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin-bottom:7px}
+code{font-family:"SF Mono",SFMono-Regular,Consolas,"Liberation Mono",monospace;
+  font-size:.88em;background:#EFF1F4;padding:1.5px 5px;border-radius:4px;color:#2B2F38}
+pre{background:#17191D;color:#DDE1E6;border-radius:12px;padding:18px 20px;overflow-x:auto;
+  font-size:12.5px;line-height:1.7;margin:16px 0 20px;
+  font-family:"SF Mono",SFMono-Regular,Consolas,monospace}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+pre .c{color:#7A828E}
+table{width:100%;border-collapse:collapse;margin:18px 0 22px;font-size:13.5px;background:var(--card)}
+th{text-align:left;font-weight:600;color:var(--sub);font-size:12px;letter-spacing:.03em;
+  padding:10px 12px;border-bottom:1.5px solid var(--line);background:#FAFBFC;white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6}
+tr:last-child td{border-bottom:none}
+td.k{font-weight:600;color:var(--ink);white-space:nowrap}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:5px;font-weight:600;
+  white-space:nowrap;line-height:1.7}
+.t-best{background:var(--green-bg);color:var(--green)}
+.t-mid{background:var(--amber-bg);color:var(--amber)}
+.t-bad{background:var(--red-bg);color:var(--red)}
+.t-info{background:var(--blue-bg);color:var(--blue)}
+.callout{border-radius:12px;padding:16px 20px;margin:20px 0;font-size:14px;line-height:1.7;
+  border:1px solid;background:var(--card)}
+.callout b{display:block;margin-bottom:6px;font-size:13px;letter-spacing:.02em}
+.c-amber{border-color:#F3DDB8;background:var(--amber-bg)}
+.c-amber b{color:var(--amber)}
+.c-red{border-color:#F8C9C3;background:var(--red-bg)}
+.c-red b{color:var(--red)}
+.c-blue{border-color:#CFDDFB;background:var(--blue-bg)}
+.c-blue b{color:var(--blue)}
+.c-green{border-color:#BFE8CF;background:var(--green-bg)}
+.c-green b{color:var(--green)}
+.callout p:last-child{margin-bottom:0}
+figure{margin:26px 0;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:26px 22px 18px;overflow-x:auto}
+figcaption{font-size:12.5px;color:var(--faint);margin-top:10px;text-align:center}
+.layers{display:flex;flex-direction:column;gap:10px;margin:18px 0 8px}
+.layer{border-radius:12px;padding:14px 18px;border:1px solid}
+.layer .lh{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.layer .lh b{font-size:14px;font-weight:640}
+.layer .lh small{font-size:12px;color:var(--sub)}
+.layer .lb{font-size:10.5px;font-weight:700;letter-spacing:.1em;padding:1px 6px;border-radius:4px;
+  background:#fff;border:1px solid currentColor}
+.chips-in{display:flex;gap:8px;flex-wrap:wrap}
+.chips-in span{font-size:12.5px;background:#fff;border:1px solid var(--line);
+  border-radius:8px;padding:5px 11px;color:var(--ink)}
+.l0{border-color:#CFDDFB;background:#F7FAFF}
+.l0 .lb{color:var(--blue)}
+.l1{border-color:#E3D5F5;background:#FBF8FF}
+.l1 .lb{color:#6B3FA0}
+.l2{border-color:#F3DDB8;background:#FFFCF5}
+.l2 .lb{color:var(--amber)}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0}
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.gcard .gt{font-size:12px;color:var(--faint);margin-bottom:6px;letter-spacing:.03em}
+.gcard .gm{font-size:15px;font-weight:640;margin-bottom:4px}
+.gcard .gs{font-size:12.5px;color:var(--sub);line-height:1.6}
+hr{border:none;border-top:1px solid var(--line);margin:0 0 64px}
+.sig{color:var(--faint);font-size:12.5px;margin-top:10px}
+.formula{background:#17191D;color:#E9ECF0;border-radius:12px;padding:18px 22px;margin:20px 0;
+  font-size:13.5px;line-height:1.9;font-family:"SF Mono",SFMono-Regular,Consolas,monospace}
+.formula em{color:#FCC36B;font-style:normal}
+@media (max-width:640px){
+  .toc ol{columns:1}
+  h1{font-size:25px}
+  table{font-size:12.5px}
+  th,td{padding:8px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">TECHNICAL DESIGN · v1</div>
+  <h1>骑行结束后自动提醒关锁</h1>
+  <p class="lede">面向已 root（KernelSU + LSPosed）Android 设备的实现方案：如何判定「该关锁了却没关」，以及用什么把人叫醒。</p>
+  <div class="chips">
+    <span class="chip">目标包 com.sankuai.meituan</span>
+    <span class="chip">主链路无需 root</span>
+    <span class="chip">判定延迟 ≈ 下车后 2 min</span>
+    <span class="chip">含代码骨架</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1"><span class="n">01</span>结论先行</a></li>
+    <li><a href="#s2"><span class="n">02</span>事实核查</a></li>
+    <li><a href="#s3"><span class="n">03</span>问题建模</a></li>
+    <li><a href="#s4"><span class="n">04</span>信号源选型</a></li>
+    <li><a href="#s5"><span class="n">05</span>判定引擎</a></li>
+    <li><a href="#s6"><span class="n">06</span>模块分工</a></li>
+    <li><a href="#s7"><span class="n">07</span>三条实现路线</a></li>
+    <li><a href="#s8"><span class="n">08</span>提醒策略</a></li>
+    <li><a href="#s9"><span class="n">09</span>权限清单</a></li>
+    <li><a href="#s10"><span class="n">10</span>兼容性与风险</a></li>
+    <li><a href="#s11"><span class="n">11</span>失败场景排查</a></li>
+    <li><a href="#s12"><span class="n">12</span>灰度验证</a></li>
+  </ol>
+</nav>
+
+<section id="s1">
+  <h2><span class="num">01</span>结论先行</h2>
+
+  <div class="grid3">
+    <div class="gcard">
+      <div class="gt">判定模型</div>
+      <div class="gm">反向判定</div>
+      <div class="gs">不监听「结束」，而是监听「该结束却没结束」。前者只能事后记录，后者才有止损价值。</div>
+    </div>
+    <div class="gcard">
+      <div class="gt">技术路线</div>
+      <div class="gm">通知监听为主</div>
+      <div class="gs">通知 + 运动状态 + 强提醒，无需 root 即可跑通；LSPosed 只作可选增强。</div>
+    </div>
+    <div class="gcard">
+      <div class="gt">最大的坑</div>
+      <div class="gm">信号不确定性</div>
+      <div class="gs">美团不保证有常驻通知、不保证推送时机。必须先做一周 dry-run 采样本。</div>
+    </div>
+  </div>
+
+  <p>如果把这件事当成「监听行程结束事件」来做，会立刻撞墙：行程结束通知到达时，计费已经停了，提醒毫无意义。真正要捕捉的是<b>「用户已经下车，但订单还开着」</b>这个状态。</p>
+
+  <p>因此整套方案的核心不是某个 hook 点，而是一个<b>骑行会话状态机</b>：开锁时建立会话，之后持续用多路弱信号推断「是不是该结束了」，只有在推断成立且没有收到结束信号时才叫人。单靠任何一个信号都不够可靠，这也是为什么必须做信号融合，而不是找一个「万能监听点」。</p>
+</section>
+
+<hr>
+
+<section id="s2">
+  <h2><span class="num">02</span>事实核查</h2>
+  <p>动工前先确认四条事实，它们直接决定了方案边界。</p>
+
+  <table>
+    <thead><tr><th>事实</th><th>内容</th><th>对方案的影响</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">无独立客户端</td>
+        <td>美团单车已并入美团主 App，包名 <code>com.sankuai.meituan</code>，没有单独的单车 App。</td>
+        <td>LSPosed 作用域只能勾美团主 App；同时要处理主 App 体积大、加固、类名混淆的问题。</td>
+      </tr>
+      <tr>
+        <td class="k">多入口</td>
+        <td>除美团 App 外，支付宝（<code>com.eg.android.AlipayGphone</code>）扫美团单车码也能开锁，微信小程序同样可以。</td>
+        <td>监听范围必须是<b>包名集合</b>而不是单包名，否则漏掉一大半场景。</td>
+      </tr>
+      <tr>
+        <td class="k">自动结单阈值</td>
+        <td>美团《共享单车租赁服务协议》约定：车辆连续静止满 <b>60 分钟</b>，平台有权认定骑行结束并自动关单。</td>
+        <td>这是天然的最坏情况上限，也是判定引擎「最大静默时长」兜底的依据。</td>
+      </tr>
+      <tr>
+        <td class="k">催还推送时延</td>
+        <td>实测与客服口径显示，「长时间未移动，还在计费」类提醒通常在开锁后 <b>25 分钟</b>左右才到达。</td>
+        <td>平台侧提醒<b>不能当作主力触发</b>，只能作为权威兜底；主力必须自己做，把延迟压到 1–2 分钟。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-blue">
+    <b>这四条事实合起来意味着什么</b>
+    <p>平台在 8 分钟（典型骑行）到 25 分钟（首次提醒）之间是完全沉默的，这段沉默期就是你实打实在付钱的时间。方案的全部价值，就是把这段沉默期从 17 分钟压缩到 2 分钟。</p>
+  </div>
+</section>
+
+<hr>
+
+<section id="s3">
+  <h2><span class="num">03</span>问题建模</h2>
+
+  <p>把骑行拆成三个可观测的锚点：</p>
+
+  <table>
+    <thead><tr><th>符号</th><th>语义</th><th>典型来源</th><th>可靠性</th></tr></thead>
+    <tbody>
+      <tr><td class="k">S_open</td><td>订单已开始（开锁成功）</td><td>「开锁成功」通知、页面跳转、BLE 连接建立</td><td><span class="tag t-best">高</span></td></tr>
+      <tr><td class="k">S_should</td><td>人应该已经离开车了</td><td>静止 + 人车分离、常驻通知消失、页面切走</td><td><span class="tag t-mid">中</span></td></tr>
+      <tr><td class="k">S_close</td><td>订单确实已结束</td><td>「关锁成功」「行程结束」「待支付」</td><td><span class="tag t-best">高</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="formula">
+    <em>ALERT</em> = S_open 成立<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;且 S_should 成立<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;且 S_close 尚未到达<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;且 未超出冷却窗口
+  </div>
+
+  <figure>
+    <svg width="100%" viewBox="0 0 680 280" role="img" xmlns="http://www.w3.org/2000/svg">
+      <title>风险时间线</title>
+      <desc>开锁后约 8 分钟到达目的地，平台在约 25 分钟推送提醒，60 分钟自动结单，中间存在约 17 分钟计费风险敞口。</desc>
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <g font-family="-apple-system,'PingFang SC','Microsoft YaHei',sans-serif">
+        <line x1="60" y1="170" x2="620" y2="170" stroke="#B4B2A9" stroke-width="1.5"/>
+        <line x1="149" y1="170" x2="297" y2="170" stroke="#E24B4A" stroke-width="9" stroke-opacity="0.3" stroke-linecap="round"/>
+        <circle cx="80" cy="170" r="5" fill="#378ADD"/>
+        <circle cx="149" cy="170" r="5" fill="#BA7517"/>
+        <circle cx="297" cy="170" r="5" fill="#E24B4A"/>
+        <circle cx="600" cy="170" r="5" fill="#1D9E75"/>
+        <text x="62" y="104" font-size="14" font-weight="500" fill="#185FA5">开锁成功</text>
+        <text x="62" y="122" font-size="12" fill="#5F5E5A">t = 0</text>
+        <text x="140" y="104" font-size="14" font-weight="500" fill="#854F0B">到达目的地，人已下车</text>
+        <text x="140" y="122" font-size="12" fill="#5F5E5A">t ≈ 8 min</text>
+        <text x="620" y="104" font-size="14" font-weight="500" fill="#0F6E56" text-anchor="end">平台自动结束订单</text>
+        <text x="620" y="122" font-size="12" fill="#5F5E5A" text-anchor="end">t = 60 min</text>
+        <text x="223" y="148" font-size="12" fill="#A32D2D" text-anchor="middle">风险敞口 ≈ 17 min</text>
+        <text x="297" y="204" font-size="12" fill="#A32D2D" text-anchor="middle">平台推送「长时间未移动，还在计费」</text>
+        <text x="297" y="221" font-size="12" fill="#5F5E5A" text-anchor="middle">约 25 min 才到</text>
+        <line x1="172" y1="244" x2="172" y2="182" stroke="#E24B4A" stroke-width="1.5" fill="none" marker-end="url(#a1)"/>
+        <text x="172" y="264" font-size="13" fill="#A32D2D" text-anchor="middle">本方案要求的介入点：下车后 1–2 min</text>
+      </g>
+    </svg>
+    <figcaption>平台沉默期就是你的付费期，方案目标是把 17 分钟压到 2 分钟</figcaption>
+  </figure>
+</section>
+
+<hr>
+
+<section id="s4">
+  <h2><span class="num">04</span>信号源选型</h2>
+  <p>把手机能拿到的所有相关信号列全，再按「可靠性 / 成本 / 风险」三维度排序。结论在表后。</p>
+
+  <table>
+    <thead><tr><th>信号源</th><th>能拿到什么</th><th>权限</th><th>时延</th><th>稳定</th><th>风险</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">通知监听</td>
+        <td>开锁成功、行程结束、催还提醒、金额；<code>onNotificationRemoved</code> 还能拿到通知消失</td>
+        <td>通知使用权</td><td>实时</td>
+        <td><span class="tag t-best">高</span></td>
+        <td>文案随版本变化</td>
+      </tr>
+      <tr>
+        <td class="k">通知移除回调</td>
+        <td>常驻「骑行中」通知消失 = 强结束信号；反过来，常驻通知在 = 订单肯定还开着</td>
+        <td>同上</td><td>实时</td>
+        <td><span class="tag t-mid">取决于是否有常驻通知</span></td>
+        <td>需先用 dry-run 确认美团是否发常驻通知</td>
+      </tr>
+      <tr>
+        <td class="k">无障碍服务</td>
+        <td>页面文本：骑行计时、结束行程按钮、行程结束页、待支付页</td>
+        <td>无障碍</td><td>实时</td>
+        <td><span class="tag t-mid">中</span></td>
+        <td>页面改版即失效；部分 App 检测无障碍</td>
+      </tr>
+      <tr>
+        <td class="k">运动 / 位置</td>
+        <td>静止时长、人车分离距离、步行离开——判断 S_should 的主力</td>
+        <td>定位（+后台定位）</td><td>20–30 s</td>
+        <td><span class="tag t-best">高</span></td>
+        <td>耗电、GPS 漂移、室内失锁</td>
+      </tr>
+      <tr>
+        <td class="k">蓝牙 / BLE</td>
+        <td>开锁时手机与车锁建连；连接断开可作为结束旁证</td>
+        <td>蓝牙扫描/连接</td><td>实时</td>
+        <td><span class="tag t-bad">低</span></td>
+        <td>连接策略不透明，锁型差异大，噪声多</td>
+      </tr>
+      <tr>
+        <td class="k">LSPosed 挂钩</td>
+        <td>订单状态字段、接口响应，能拿到「关锁失败」这种 App 内部才知道的状态</td>
+        <td>root + LSPosed</td><td>实时</td>
+        <td><span class="tag t-bad">低</span></td>
+        <td>加固混淆、版本失效、平台风控、协议风险</td>
+      </tr>
+      <tr>
+        <td class="k">系统级轮询</td>
+        <td><code>dumpsys notification</code> / <code>logcat -b events</code>，不写 App 也能采信号</td>
+        <td>root</td><td>1–3 s</td>
+        <td><span class="tag t-mid">中</span></td>
+        <td>耗电、ROM 差异；适合 PoC 与 dry-run</td>
+      </tr>
+      <tr>
+        <td class="k">前台应用</td>
+        <td>当前是否停留在美团/支付宝</td>
+        <td>UsageStats</td><td>秒级</td>
+        <td><span class="tag t-mid">中</span></td>
+        <td>只能当置信度微调，不能当触发</td>
+      </tr>
+      <tr>
+        <td class="k">屏幕状态</td>
+        <td>是否亮屏、是否在锁屏</td>
+        <td>无</td><td>实时</td>
+        <td>高</td>
+        <td>仅用于提醒强度决策</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-green">
+    <b>选型结论</b>
+    <p><b>主力：</b>通知监听（S_open / S_close）+ 运动位置（S_should）。这两者组合已经能覆盖 90% 场景，且完全不需要 root。<br>
+    <b>辅助：</b>无障碍服务，专治「美团不推通知、只在页面里显示」的机型/场景。<br>
+    <b>兜底：</b>平台催还推送 —— 拿到就是实锤，虽然来得晚。<br>
+    <b>可选：</b>LSPosed —— 只有当前三层都压不住误判时才值得投入，见第 10 节风险说明。</p>
+  </div>
+
+  <div class="callout c-amber">
+    <b>一个必须先验证的假设</b>
+    <p>整套方案的最优解，取决于「美团在骑行中是否发一条不可划掉的常驻通知」。<br>
+    如果有：它的存在/消失就是天然的、零成本的骑行状态指示器，方案可以极简且极准。<br>
+    如果没有：必须完全依赖运动推断，误报率会上升。<br>
+    <b>这件事不要猜，用第 12 节的 dry-run 跑三天就有答案。</b></p>
+  </div>
+</section>
+
+<hr>
+
+<section id="s5">
+  <h2><span class="num">05</span>判定引擎</h2>
+
+  <figure>
+    <svg width="100%" viewBox="0 0 680 500" role="img" xmlns="http://www.w3.org/2000/svg">
+      <title>判定流水线</title>
+      <desc>捕获开锁信号、建立会话、检查结束信号、判定应已结束、复核后分级提醒。</desc>
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <g font-family="-apple-system,'PingFang SC','Microsoft YaHei',sans-serif">
+        <rect x="140" y="30" width="300" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="290" y="52" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle" dominant-baseline="central">① 捕获开锁信号</text>
+        <text x="290" y="70" font-size="12" fill="#185FA5" text-anchor="middle" dominant-baseline="central">通知文案 · 页面 UI · 蓝牙连接</text>
+
+        <rect x="140" y="126" width="300" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="290" y="148" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle" dominant-baseline="central">② 建立骑行会话并落盘</text>
+        <text x="290" y="166" font-size="12" fill="#185FA5" text-anchor="middle" dominant-baseline="central">车号 · 起点 · 开始时间</text>
+
+        <rect x="140" y="222" width="300" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="290" y="244" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle" dominant-baseline="central">③ 会话内收到结束信号？</text>
+        <text x="290" y="262" font-size="12" fill="#185FA5" text-anchor="middle" dominant-baseline="central">关锁成功 · 行程结束 · 待支付</text>
+
+        <rect x="500" y="226" width="140" height="48" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+        <text x="570" y="243" font-size="14" font-weight="500" fill="#444441" text-anchor="middle" dominant-baseline="central">复位</text>
+        <text x="570" y="261" font-size="12" fill="#5F5E5A" text-anchor="middle" dominant-baseline="central">取消全部提醒</text>
+
+        <rect x="140" y="318" width="300" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="290" y="340" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle" dominant-baseline="central">④ 满足「应已结束」判据</text>
+        <text x="290" y="358" font-size="12" fill="#185FA5" text-anchor="middle" dominant-baseline="central">静止 2 min · 人车分离 · 通知消失</text>
+
+        <rect x="140" y="414" width="300" height="56" rx="8" fill="#FCEBEB" stroke="#A32D2D" stroke-width="0.5"/>
+        <text x="290" y="436" font-size="14" font-weight="500" fill="#791F1F" text-anchor="middle" dominant-baseline="central">⑤ 复核通过，升级提醒</text>
+        <text x="290" y="454" font-size="12" fill="#A32D2D" text-anchor="middle" dominant-baseline="central">直到确认已关锁或会话复位</text>
+
+        <line x1="290" y1="86" x2="290" y2="126" stroke="#185FA5" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+        <line x1="290" y1="182" x2="290" y2="222" stroke="#185FA5" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+        <line x1="290" y1="278" x2="290" y2="318" stroke="#185FA5" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+        <line x1="290" y1="374" x2="290" y2="414" stroke="#A32D2D" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+        <line x1="440" y1="250" x2="500" y2="250" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+        <text x="468" y="241" font-size="12" fill="#5F5E5A" text-anchor="middle">是</text>
+        <text x="300" y="303" font-size="12" fill="#5F5E5A">否</text>
+        <text x="300" y="400" font-size="12" fill="#5F5E5A">否</text>
+      </g>
+    </svg>
+    <figcaption>五段式流水线：任一环节不成立就不打扰用户</figcaption>
+  </figure>
+
+  <h3>证据权重与阈值</h3>
+  <p>核心思想：<b>不允许单一信号触发提醒</b>。每条证据独立计分，累计达到阈值才进入 SUSPECT。</p>
+
+  <table>
+    <thead><tr><th>证据</th><th>分值</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td class="k">静止 ≥ 2 min 且位移 &lt; 25 m</td><td>+1</td><td>弱信号。等红灯、路边打电话都会命中，单独不可用</td></tr>
+      <tr><td class="k">停稳后又移动，且离停车点 &gt; 80 m</td><td>+2</td><td><b>最强的自建信号</b>：人走了，车留下了</td></tr>
+      <tr><td class="k">常驻「骑行中」通知消失</td><td>+2</td><td>等价于订单结束，可直接复位而非提醒</td></tr>
+      <tr><td class="k">平台催还推送</td><td>直接触发</td><td>权威信号，跳过阈值判断</td></tr>
+      <tr><td class="k">当前在美团/支付宝且亮屏</td><td>+0.5</td><td>仅微调，永不单独成立</td></tr>
+      <tr><td class="k">会话时长 &gt; 150 min 无结束信号</td><td>直接触发</td><td>漏报兜底</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>阈值：≥ 2 分进入 SUSPECT</b>。也就是说，正常场景下「静止 1 分 + 人车分离 2 分 = 3 分」立刻成立，而单纯等红灯只有 1 分，不会误报。</p>
+
+  <h3>四道防误报闸门</h3>
+  <ol>
+    <li><b>最短骑行时长</b>（2 min）：扫码失败、开了立刻还车这类短会话直接丢弃。</li>
+    <li><b>证据加权</b>：如上，单一信号不足以触发。</li>
+    <li><b>复核窗口</b>（20 s）：进入 SUSPECT 后先等 20 秒。因为「关锁成功」通知往往比 GPS 静止判定晚几秒到十几秒到达，这个窗口能吃掉大量假阳性。</li>
+    <li><b>心跳撤回</b>：会话中只要又收到「骑行中」心跳，立刻退回 RIDING 并清零分数。</li>
+  </ol>
+
+  <h3>三道防漏报兜底</h3>
+  <ol>
+    <li><b>平台催还推送</b>：宁可迟到，也不能完全没有——这是唯一 100% 权威的外部信号。</li>
+    <li><b>最大静默时长</b>：会话超过 150 分钟仍无结束信号，强制提醒。</li>
+    <li><b>进程重启恢复</b>：会话状态写 SharedPreferences，服务被杀/手机重启后 <code>restore()</code> 续接，避免「刚好在关键 2 分钟里被系统杀了」。</li>
+  </ol>
+
+  <div class="callout c-amber">
+    <b>为什么「人车分离」比「静止」可靠得多</b>
+    <p>静止无法区分「等红灯」和「已经走人」。但共享单车的使用模式很固定：<b>骑 → 停 → 下车 → 步行离开</b>。真正有区分力的是停顿之后那次<b>低速位移并持续远离停车点</b>。这也是阈值定在 80 m 的原因——GPS 在城市峡谷里的静止漂移通常不超过 50 m。</p>
+  </div>
+</section>
+
+<hr>
+
+<section id="s6">
+  <h2><span class="num">06</span>模块分工</h2>
+
+  <p>三层结构，每层职责单一，层间只通过 <code>Signal</code> 数据类通信。这样任何一层坏掉都不影响其他层的调试。</p>
+
+  <div class="layers">
+    <div class="layer l0">
+      <div class="lh"><span class="lb">L0</span><b>采集层</b><small>只产信号，不做任何判断</small></div>
+      <div class="chips-in">
+        <span>NotificationListener</span>
+        <span>AccessibilityService</span>
+        <span>LocationManager</span>
+        <span>BLE（可选）</span>
+      </div>
+    </div>
+    <div class="layer l1">
+      <div class="lh"><span class="lb">L1</span><b>判定层</b><small>状态机 + 证据加权 + 幂等落盘</small></div>
+      <div class="chips-in">
+        <span>RideSessionEngine</span>
+        <span>SignalParser</span>
+        <span>SignalLog</span>
+      </div>
+    </div>
+    <div class="layer l2">
+      <div class="lh"><span class="lb">L2</span><b>执行层</b><small>分级提醒 + 升级策略 + 撤销入口</small></div>
+      <div class="chips-in">
+        <span>AlertDispatcher</span>
+        <span>Notification</span>
+        <span>TTS（STREAM_ALARM）</span>
+        <span>Vibrator</span>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>文件</th><th>职责</th><th>关键设计</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Signal.kt</td><td>信号模型 + 文案解析规则 + 全量日志</td><td>规则顺序 NUDGE→ONGOING→END→START，避免「骑行中·1.5元」被误判为结束</td></tr>
+      <tr><td class="k">BikeNotificationListener.kt</td><td>通知采集，覆盖美团 + 支付宝</td><td>同时处理 posted 与 removed；监听连接时自动 restore</td></tr>
+      <tr><td class="k">BikeSessionEngine.kt</td><td>状态机核心</td><td>四道闸门 + 三兜底，状态持久化</td></tr>
+      <tr><td class="k">MotionWatcher.kt</td><td>运动/位置判定</td><td>只在会话期注册定位，结束即注销，控制耗电</td></tr>
+      <tr><td class="k">AlertDispatcher.kt</td><td>提醒执行</td><td>TTS 走 ALARM 音频流，穿静音；分级升级</td></tr>
+      <tr><td class="k">BikeAccessibilityService.kt</td><td>页面兜底</td><td>只取文本交给同一个解析器，命中即产信号</td></tr>
+      <tr><td class="k">tools/probe.sh</td><td>dry-run 采集</td><td>root 下无需写 App 即可拿到真实通知文案</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr>
+
+<section id="s7">
+  <h2><span class="num">07</span>三条实现路线</h2>
+
+  <table>
+    <thead><tr><th>路线</th><th>做什么</th><th>工作量</th><th>可靠性</th><th>适合</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">A · 零代码</td>
+        <td>MacroDroid / Tasker：通知触发 + 位置触发 + 震动/TTS 动作。需要通知监听与自动化 App 的对应权限。</td>
+        <td>半天</td><td><span class="tag t-mid">中</span></td>
+        <td>想当天用上、不想维护代码</td>
+      </tr>
+      <tr>
+        <td class="k">B · 自研 App</td>
+        <td>本方案代码骨架，Kotlin 前台服务。通知 + 运动 + 分级提醒 + 日志。</td>
+        <td>2–4 天</td><td><span class="tag t-best">高</span></td>
+        <td><b>推荐</b>：可完全按自己的计费习惯调参</td>
+      </tr>
+      <tr>
+        <td class="k">C · LSPosed 增强</td>
+        <td>在 B 之上 hook 美团，读取订单真实状态，把「推测」变「确认」。</td>
+        <td>1–2 周（含脱壳）</td><td><span class="tag t-bad">低</span></td>
+        <td>追求极致精度、能接受维护成本</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-blue">
+    <b>强烈建议的推进顺序</b>
+    <p><b>A（验证可行性）→ dry-run 采样本 → B（做成日常可用）→ 视误报情况决定是否上 C。</b><br>
+    不要从 C 起步。LSPosed 在加固 App 上的调试成本极高，而且你会在花了两周之后发现：真正的问题其实是文案规则没对准，跟 hook 一点关系都没有。</p>
+  </div>
+
+  <h3>路线 A 的具体搭法</h3>
+  <p>如果先用 MacroDroid 快速验证，两个宏就够：</p>
+  <ol>
+    <li><b>宏 1 — 开锁标记</b>：触发器 = 通知（应用选美团，文本含「开锁」）→ 动作 = 设置变量 <code>riding=true</code>，记录时间戳。</li>
+    <li><b>宏 2 — 提醒</b>：触发器 = 位置（停留 &gt; 2 分钟）且 <code>riding=true</code> → 动作 = 播放声音 + 震动 + 语音合成「请确认是否已关锁」。若期间收到含「关锁」「行程结束」的通知，则清空变量。</li>
+  </ol>
+  <p>这套搭法能跑通，就说明信号可用，再迁移到自研 App 才有意义。</p>
+</section>
+
+<hr>
+
+<section id="s8">
+  <h2><span class="num">08</span>提醒策略</h2>
+
+  <p>提醒的关键不是「响」，而是<b>在用户没看手机的情况下也能被感知</b>。骑完车，手机大概率在口袋里、连着耳机、或者屏幕朝下放包里。</p>
+
+  <table>
+    <thead><tr><th>级别</th><th>时机</th><th>手段</th><th>目的</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">L1</td><td>复核通过即刻</td>
+        <td>高优通知（不可划掉）+ 一次强震动 + TTS 播报</td>
+        <td>口袋里能听见，兜里能感到</td>
+      </tr>
+      <tr>
+        <td class="k">L2</td><td>L1 后约 90 s 未确认</td>
+        <td>加响铃（ALARM 流）+ 全屏界面 + 重复播报</td>
+        <td>掏出手机就能看到，不用找通知栏</td>
+      </tr>
+      <tr>
+        <td class="k">L3</td><td>L2 后仍无响应，或会话 &gt; 150 min</td>
+        <td>持续震动 until 处理；播报改为「警告」语气</td>
+        <td>最后一道防线</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>绕过静音与勿扰的三个要点</h3>
+  <ul>
+    <li><b>音频流选 ALARM 而不是 MUSIC/NOTIFICATION。</b> 静音模式只静音 RING/NOTIFICATION 流，ALARM 流仍然出声。TTS 通过 <code>KEY_PARAM_STREAM = STREAM_ALARM</code> 指定。</li>
+    <li><b>通知渠道单独建，重要性 HIGH，并 <code>setBypassDnd(true)</code>。</b> 后者需要 <code>ACCESS_NOTIFICATION_POLICY</code> 权限且用户已授予「勿扰访问权限」，否则静默失效。</li>
+    <li><b>震动也要带 AudioAttributes(USAGE_ALARM)。</b> Android 8+ 只有在 USAGE_ALARM 下，震动才会在勿扰模式里被放行。</li>
+  </ul>
+
+  <div class="callout c-red">
+    <b>Android 14+ 的全屏 Intent 限制</b>
+    <p>从 Android 14 起，<code>USE_FULL_SCREEN_INTENT</code> 默认只授予闹钟/通话类应用，普通应用会被降级为普通通知头。需要引导用户在「设置 → 应用 → 特殊权限 → 全屏通知」里手动放行。<br>
+    替代方案：用 <code>AlarmManager.setAlarmClock()</code> 触发，它天然可以唤醒屏幕并在状态栏显示闹钟图标，不需要额外权限。</p>
+  </div>
+
+  <h3>必须留「撤销」入口</h3>
+  <p>提醒做得很强，就必须做得容易关掉，否则第三天你就会因为误报而卸载它。通知上固定挂一个「我已关锁」按钮，点击即 <code>userConfirmed()</code> 复位并静音。</p>
+</section>
+
+<hr>
+
+<section id="s9">
+  <h2><span class="num">09</span>权限清单</h2>
+
+  <table>
+    <thead><tr><th>权限</th><th>用途</th><th>授予方式</th><th>缺失后果</th></tr></thead>
+    <tbody>
+      <tr><td class="k">通知使用权</td><td>读取美团通知</td><td>设置 → 通知 → 通知使用权；或 <code>adb shell cmd notification allow_listener</code></td><td>整个方案失效</td></tr>
+      <tr><td class="k">精确定位</td><td>人车分离判定</td><td>运行时申请</td><td>只能靠静止判定，误报升高</td></tr>
+      <tr><td class="k">后台定位</td><td>骑行中锁屏后仍能取点</td><td>设置 → 应用 → 位置 → 始终允许</td><td>熄屏后丢失轨迹</td></tr>
+      <tr><td class="k">通知权限</td><td>发提醒</td><td>运行时申请（Android 13+）</td><td>提醒不可见</td></tr>
+      <tr><td class="k">勿扰访问</td><td>绕过勿扰</td><td>设置 → 通知 → 勿扰 → 允许例外</td><td>夜间/开会时提醒静音</td></tr>
+      <tr><td class="k">全屏通知</td><td>L2 锁屏弹出</td><td>特殊权限 → 全屏通知（Android 14+ 必须手动）</td><td>降级为普通通知</td></tr>
+      <tr><td class="k">电池优化白名单</td><td>防止后台被杀</td><td><code>adb shell dumpsys deviceidle whitelist +com.bikeguard</code></td><td>关键 2 分钟被系统杀掉</td></tr>
+      <tr><td class="k">自启动 / 后台弹出</td><td>国产 ROM 必需</td><td>MIUI/HyperOS、ColorOS、OriginOS 各自的「自启动」「后台弹出界面」开关</td><td>提醒根本弹不出来</td></tr>
+      <tr><td class="k">无障碍（可选）</td><td>读页面文本</td><td>设置 → 无障碍</td><td>少一路兜底信号</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code><span class="c"># 批量授予（USB 调试，部分项仍需系统弹窗确认）</span>
+adb shell cmd notification allow_listener com.bikeguard/.BikeNotificationListener
+adb shell pm grant com.bikeguard android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.bikeguard android.permission.POST_NOTIFICATIONS
+adb shell dumpsys deviceidle whitelist +com.bikeguard
+adb shell appops set com.bikeguard ACCESS_BACKGROUND_LOCATION allow
+
+<span class="c"># 验证通知监听是否真正生效</span>
+adb shell settings get secure enabled_notification_listeners</code></pre>
+</section>
+
+<hr>
+
+<section id="s10">
+  <h2><span class="num">10</span>兼容性与风险</h2>
+
+  <h3>美团 App 的加固与混淆</h3>
+  <p>美团主 App 有商业加固壳，LSPosed 挂钩需要等壳解密后才能拿到真实 ClassLoader。这意味着：</p>
+  <ul>
+    <li><code>findAndHookMethod</code> 在 <code>Application.onCreate</code> 之前调用会直接抛 <code>ClassNotFound</code>；</li>
+    <li>类名、方法名被混淆，需要先脱壳 dump 类列表再定位；</li>
+    <li>接口层可能不是标准 OkHttp，而是自研网络栈（protobuf 为主），抓明文响应难度更高。</li>
+  </ul>
+
+  <h3>平台风控</h3>
+  <div class="callout c-red">
+    <b>这是最需要认真对待的一条</b>
+    <p>美团对 root / Xposed / 多开环境有风控能力。挂钩客户端可能导致：登录态异常、下单被拒、甚至账号受限。<br>
+    <b>建议：</b>① 不要用主账号做 hook 实验；② 用 KernelSU + Zygisk Next + Shamiko 一类的隐藏方案降低检出；③ 评估投入产出——为了一个关锁提醒去承担账号风险，通常不划算。</p>
+  </div>
+
+  <h3>协议合规</h3>
+  <div class="callout c-amber">
+    <b>请注意这一条</b>
+    <p>美团《共享单车租赁服务协议》4.1(3) 明确禁止「利用技术手段侵入、访问、记录、盗取、交易、传播平台系统的数据和本服务相关信息」。<br>
+    读取<b>自己手机上的系统通知</b>属于 Android 公开能力，不涉及侵入平台，风险很低；而 hook 客户端读取接口数据则明确落在该条款的射程内。<br>
+    <b>这也是本方案把 LSPosed 放在最后一位、并强调「只读不写、不改业务逻辑」的原因。</b>如果只是为了避免忘记关锁，通知监听 + 运动判定已经完全够用，没必要踩这条线。</p>
+  </div>
+
+  <h3>多入口带来的漏判</h3>
+  <p>如果你习惯用支付宝扫码骑美团单车，而监听范围只写了美团 App 包名，那么开锁信号永远抓不到，整个会话根本不会建立。务必把 <code>Sankuai</code> 与 <code>AlipayGphone</code> 两个包都纳入，微信小程序场景同理（但小程序几乎不发通知，实际收益有限，更依赖无障碍）。</p>
+
+  <h3>国产 ROM 的后台限制</h3>
+  <ul>
+    <li>MIUI/HyperOS：需要「自启动」+「省电策略：无限制」+ 锁定后台任务卡片；</li>
+    <li>ColorOS/OriginOS：需要允许「后台弹出界面」，否则全屏 Intent 会被吞；</li>
+    <li>通用：<code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code> + 前台服务（类型 <code>location</code>）双保险。</li>
+  </ul>
+
+  <h3>通知渠道被用户误关</h3>
+  <p>如果用户手动把「关锁提醒」渠道调成静音，所有强提醒都会失效，而 App 侧无法感知。建议加一个自检：启动时读 <code>NotificationChannel.importance</code>，低于 HIGH 就提示用户修正。</p>
+</section>
+
+<hr>
+
+<section id="s11">
+  <h2><span class="num">11</span>失败场景排查</h2>
+
+  <table>
+    <thead><tr><th>症状</th><th>可能原因</th><th>验证方法</th><th>处理</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">完全没提醒过</td>
+        <td>通知使用权被系统或安全中心回收</td>
+        <td><code>adb shell settings get secure enabled_notification_listeners</code></td>
+        <td>重新授予；国产 ROM 需在「自启动管理」里放行</td>
+      </tr>
+      <tr>
+        <td class="k">会话从不建立</td>
+        <td>开锁通知文案不匹配 / 走了支付宝入口未纳入监听</td>
+        <td>看 <code>signal-*.jsonl</code> 里有没有 <code>UNMATCHED</code> 记录</td>
+        <td>按真实样本改正则；补齐包名集合</td>
+      </tr>
+      <tr>
+        <td class="k">刚锁车就误报</td>
+        <td>复核窗口太短，结束通知还没到</td>
+        <td>对比 jsonl 里 <code>Motion</code> 与 <code>RideEnded</code> 的时间差</td>
+        <td>把 REVIEW_MS 从 20 s 提到 40–60 s</td>
+      </tr>
+      <tr>
+        <td class="k">等红灯时误报</td>
+        <td>「静止」单独就够分，阈值太低</td>
+        <td>看触发时 <code>reason</code> 字段是否只有「静止」</td>
+        <td>把阈值提到 2 并要求必须有人车分离</td>
+      </tr>
+      <tr>
+        <td class="k">锁了还一直响</td>
+        <td>结束通知文案变了，未命中 END 规则</td>
+        <td>jsonl 里搜用户确认前 60 s 的 UNMATCHED 记录</td>
+        <td>补规则；同时确认「待支付」是否也要算结束</td>
+      </tr>
+      <tr>
+        <td class="k">熄屏后不触发</td>
+        <td>后台定位被限制 / 前台服务被杀</td>
+        <td><code>adb shell dumpsys activity services com.bikeguard</code></td>
+        <td>加电池白名单；检查前台服务类型声明</td>
+      </tr>
+      <tr>
+        <td class="k">提醒没声音</td>
+        <td>渠道被调成静音 / 耳机连着 / TTS 引擎未装中文包</td>
+        <td>读渠道 importance；<code>adb shell dumpsys audio</code> 看活跃流</td>
+        <td>自检提示；TTS 增加引擎可用性检测</td>
+      </tr>
+      <tr>
+        <td class="k">全屏界面不弹</td>
+        <td>Android 14+ 全屏通知权限未授予</td>
+        <td>设置里看「全屏通知」是否允许</td>
+        <td>改用 <code>setAlarmClock()</code> 方案</td>
+      </tr>
+      <tr>
+        <td class="k">耗电明显增加</td>
+        <td>定位未在会话结束后注销 / 轮询 dumpsys</td>
+        <td>Battery Historian 看 GPS 唤醒次数</td>
+        <td>确认 <code>MotionWatcher.stop()</code> 被调用；停用 root 轮询</td>
+      </tr>
+      <tr>
+        <td class="k">美团提示环境异常</td>
+        <td>root / Xposed 被检测</td>
+        <td>关闭 LSPosed 模块后复测</td>
+        <td>放弃 hook 路线，退回纯通知方案</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr>
+
+<section id="s12">
+  <h2><span class="num">12</span>灰度验证</h2>
+
+  <p>这套系统的成败几乎完全取决于「文案规则是否对准了真实推送」。所以第一步不是写判定逻辑，而是<b>只记录、不提醒，跑一周</b>。</p>
+
+  <table>
+    <thead><tr><th>阶段</th><th>时长</th><th>做什么</th><th>通过标准</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="k">D0 采样</td><td>1 天</td>
+        <td>跑 <code>tools/probe.sh</code>，正常骑 2–3 次，看能抓到哪些通知</td>
+        <td>能拿到开锁与结束的原文；确认有无常驻通知</td>
+      </tr>
+      <tr>
+        <td class="k">D1–D3 埋点</td><td>3 天</td>
+        <td>App 只写 jsonl，不触发任何提醒</td>
+        <td>样本覆盖 ≥ 10 次骑行，含 1 次故意忘关锁</td>
+      </tr>
+      <tr>
+        <td class="k">D4 定规则</td><td>半天</td>
+        <td>基于样本回填正则，离线回放验证</td>
+        <td>回放中所有真实结束都被识别，零误判</td>
+      </tr>
+      <tr>
+        <td class="k">D5–D7 影子模式</td><td>3 天</td>
+        <td>引擎照常判定并写日志，但提醒只发到自己的调试通道</td>
+        <td>误报 ≤ 1 次/10 骑行</td>
+      </tr>
+      <tr>
+        <td class="k">D8 上线</td><td>—</td>
+        <td>打开真实提醒，从 L1 起步，观察一周再开 L2/L3</td>
+        <td>能稳定在 2 分钟内提醒</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-green">
+    <b>刻意制造一次失败样本</b>
+    <p>dry-run 期间一定要故意忘关锁一次，把完整链路跑通——否则你永远不知道「真出事那天」系统会不会响。这一次实验的价值，高于前面九次正常骑行。</p>
+  </div>
+
+  <p class="sig">代码骨架位于 <code>meituan-bike-lock-guard/</code>，按 <code>app/</code>、<code>lsposed/</code>、<code>tools/</code> 三个目录组织，可直接导入 Android Studio 补全 UI 后编译。</p>
+</section>
+
+</div>
+</body>
+</html>
